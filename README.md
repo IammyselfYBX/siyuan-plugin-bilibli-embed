@@ -27,6 +27,8 @@ data/plugins/siyuan-plugin-bilibili-embed/
 
 启用插件。
 
+插件启用后，在思源的插件管理入口中会显示设置齿轮，点击即可打开插件设置页。
+
 ## 使用
 
 在思源命令面板中搜索：
