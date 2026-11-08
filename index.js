@@ -228,6 +228,10 @@ class BilibiliEmbedPlugin extends Plugin {
     input.focus();
   }
 
+  async openSetting() {
+    this.openSettingsDialog();
+  }
+
   openSettingsDialog() {
     const dialog = new Dialog({
       title: "B 站视频嵌入设置",
