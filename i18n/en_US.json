@@ -1,0 +1,7 @@
+{
+  "pluginName": "Bilibili Embed",
+  "insertBilibili": "Insert Bilibili video",
+  "settings": "Open plugin settings",
+  "proxyStatus": "Check proxy status",
+  "reloadVideos": "Reload videos"
+}

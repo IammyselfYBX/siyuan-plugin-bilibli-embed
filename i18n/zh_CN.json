@@ -1,0 +1,7 @@
+{
+  "pluginName": "B 站视频嵌入",
+  "insertBilibili": "插入 B 站视频",
+  "settings": "打开插件设置",
+  "proxyStatus": "检测代理状态",
+  "reloadVideos": "刷新视频"
+}
