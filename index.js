@@ -1,0 +1,223 @@
+const { Plugin, Dialog, showMessage } = require("siyuan");
+
+const DEFAULT_SETTINGS = {
+  enabled: true,
+  proxyBase: "",
+  proxyPort: 8765,
+  token: "",
+  height: 520,
+};
+
+const BVID_RE = /BV[0-9A-Za-z]{10}/;
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function trimBase(value) {
+  return String(value || "").trim().replace(/\/+$/, "");
+}
+
+class BilibiliEmbedPlugin extends Plugin {
+  async onload() {
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, (await this.loadData("settings.json")) || {});
+    if (this.settings.enabled === undefined) this.settings.enabled = true;
+    this.fixTimer = null;
+
+    this.addCommand({
+      langKey: "insertBilibili",
+      hotkey: "",
+      editorCallback: (protyle) => this.openInsertDialog(protyle),
+    });
+    this.addCommand({
+      langKey: "settings",
+      hotkey: "",
+      callback: () => this.openSettingsDialog(),
+    });
+
+    this.eventBus.on("loaded-protyle-static", () => this.scheduleFix());
+    this.eventBus.on("loaded-protyle-dynamic", () => this.scheduleFix());
+
+    this.observer = new MutationObserver(() => this.scheduleFix());
+    this.observer.observe(document.body, { childList: true, subtree: true });
+    window.setTimeout(() => this.fixIframes(), 500);
+  }
+
+  onunload() {
+    if (this.observer) {
+      this.observer.disconnect();
+      this.observer = null;
+    }
+    if (this.fixTimer) {
+      clearTimeout(this.fixTimer);
+      this.fixTimer = null;
+    }
+  }
+
+  scheduleFix() {
+    if (this.fixTimer) clearTimeout(this.fixTimer);
+    this.fixTimer = window.setTimeout(() => this.fixIframes(), 150);
+  }
+
+  proxyBase() {
+    const configured = trimBase(this.settings.proxyBase);
+    if (configured) return configured;
+    const host = location.hostname || "127.0.0.1";
+    return `http://${host}:${Number(this.settings.proxyPort) || 8765}`;
+  }
+
+  embedUrl(bvid, page = 1, height = null) {
+    const params = new URLSearchParams();
+    params.set("p", String(Math.max(1, Number(page) || 1)));
+    const h = Number(height || this.settings.height || DEFAULT_SETTINGS.height);
+    if (h > 0) params.set("height", String(h));
+    if (this.settings.token) params.set("token", this.settings.token);
+    return `${this.proxyBase()}/embed/${encodeURIComponent(bvid)}?${params.toString()}`;
+  }
+
+  fixIframes() {
+    if (this.settings.enabled === false) return;
+    const base = this.proxyBase();
+    document.querySelectorAll('.protyle-wysiwyg [data-type="NodeIFrame"] iframe').forEach((iframe) => {
+      const src = iframe.getAttribute("src") || "";
+      if (!/\/embed\/BV[0-9A-Za-z]{10}/.test(src)) return;
+      try {
+        const url = new URL(src, location.href);
+        const target = new URL(base);
+        url.protocol = target.protocol;
+        url.host = target.host;
+        if (this.settings.token) url.searchParams.set("token", this.settings.token);
+        const next = url.toString();
+        if (next !== src) iframe.setAttribute("src", next);
+      } catch (error) {
+        console.warn("[bilibili-embed] rewrite failed", src, error);
+      }
+    });
+  }
+
+  openInsertDialog(protyle) {
+    const dialog = new Dialog({
+      title: "插入 B 站视频",
+      width: "560px",
+      content: `
+        <div class="b3-dialog__content">
+          <label class="fn__flex-column" style="gap:6px;margin-bottom:12px">
+            <span>B 站链接或 BV 号</span>
+            <input id="biliUrl" class="b3-text-field fn__block" placeholder="https://www.bilibili.com/video/BV... 或 BV..." />
+          </label>
+          <div class="fn__flex" style="gap:12px">
+            <label class="fn__flex-column" style="gap:6px;flex:1">
+              <span>分 P</span>
+              <input id="biliPage" class="b3-text-field fn__block" type="number" min="1" value="1" />
+            </label>
+            <label class="fn__flex-column" style="gap:6px;flex:1">
+              <span>高度（px）</span>
+              <input id="biliHeight" class="b3-text-field fn__block" type="number" min="240" value="${Number(this.settings.height) || 520}" />
+            </label>
+          </div>
+          <p class="b3-label__text" style="margin-top:12px">
+            当前代理：${escapeHtml(this.proxyBase())}
+          </p>
+        </div>
+        <div class="b3-dialog__action">
+          <button class="b3-button b3-button--cancel" id="biliCancel">取消</button>
+          <button class="b3-button b3-button--text" id="biliInsert">插入</button>
+        </div>
+      `,
+    });
+    const input = dialog.element.querySelector("#biliUrl");
+    const pageInput = dialog.element.querySelector("#biliPage");
+    const heightInput = dialog.element.querySelector("#biliHeight");
+    dialog.element.querySelector("#biliCancel").addEventListener("click", () => dialog.destroy());
+    dialog.element.querySelector("#biliInsert").addEventListener("click", () => {
+      const raw = (input.value || "").trim();
+      const match = raw.match(BVID_RE);
+      if (!match) {
+        showMessage("没有识别到 BV 号");
+        input.focus();
+        return;
+      }
+      let page = Math.max(1, Number(pageInput.value) || 1);
+      try {
+        const parsed = new URL(raw, location.href);
+        const urlPage = Number(parsed.searchParams.get("p"));
+        if (urlPage > 0) page = urlPage;
+      } catch (_) {
+        // BV-only input is valid.
+      }
+      const height = Math.max(240, Number(heightInput.value) || 520);
+      const bvid = match[0];
+      const src = this.embedUrl(bvid, page, height);
+      const html = `<iframe src="${escapeHtml(src)}" style="width:100%;height:${height}px;border:0" allowfullscreen></iframe>`;
+      try {
+        protyle.insert(html, false, true);
+        dialog.destroy();
+      } catch (error) {
+        console.error(error);
+        showMessage("插入失败，请确认当前文档处于编辑状态");
+      }
+    });
+    input.focus();
+  }
+
+  openSettingsDialog() {
+    const dialog = new Dialog({
+      title: "B 站视频嵌入设置",
+      width: "620px",
+      content: `
+        <div class="b3-dialog__content">
+          <label class="fn__flex" style="gap:8px;align-items:center;margin-bottom:14px">
+            <input id="biliEnabled" type="checkbox" ${this.settings.enabled === false ? "" : "checked"} />
+            <span>启用 B 站视频地址改写</span>
+          </label>
+          <label class="fn__flex-column" style="gap:6px;margin-bottom:12px">
+            <span>固定代理地址（留空 = 当前思源主机）</span>
+            <input id="biliProxyBase" class="b3-text-field fn__block" value="${escapeHtml(this.settings.proxyBase || "")}" placeholder="例如 http://192.168.0.154:8765 或 https://bili.example.com" />
+          </label>
+          <div class="fn__flex" style="gap:12px;margin-bottom:12px">
+            <label class="fn__flex-column" style="gap:6px;flex:1">
+              <span>同主机代理端口</span>
+              <input id="biliProxyPort" class="b3-text-field fn__block" type="number" min="1" value="${Number(this.settings.proxyPort) || 8765}" />
+            </label>
+            <label class="fn__flex-column" style="gap:6px;flex:1">
+              <span>默认高度（px）</span>
+              <input id="biliDefaultHeight" class="b3-text-field fn__block" type="number" min="240" value="${Number(this.settings.height) || 520}" />
+            </label>
+          </div>
+          <label class="fn__flex-column" style="gap:6px">
+            <span>代理访问 token（可留空）</span>
+            <input id="biliToken" class="b3-text-field fn__block" type="password" value="${escapeHtml(this.settings.token || "")}" />
+          </label>
+          <p class="b3-label__text" style="margin-top:12px">
+            代理地址留空时，会自动使用当前思源页面的主机名。通过 192.168.0.154:6806 打开时，视频地址会自动变成 192.168.0.154:8765。
+          </p>
+        </div>
+        <div class="b3-dialog__action">
+          <button class="b3-button b3-button--cancel" id="biliSettingsCancel">取消</button>
+          <button class="b3-button b3-button--text" id="biliSettingsSave">保存</button>
+        </div>
+      `,
+    });
+    dialog.element.querySelector("#biliSettingsCancel").addEventListener("click", () => dialog.destroy());
+    dialog.element.querySelector("#biliSettingsSave").addEventListener("click", async () => {
+      this.settings = {
+        enabled: dialog.element.querySelector("#biliEnabled").checked,
+        proxyBase: trimBase(dialog.element.querySelector("#biliProxyBase").value),
+        proxyPort: Math.max(1, Number(dialog.element.querySelector("#biliProxyPort").value) || 8765),
+        token: (dialog.element.querySelector("#biliToken").value || "").trim(),
+        height: Math.max(240, Number(dialog.element.querySelector("#biliDefaultHeight").value) || 520),
+      };
+      await this.saveData("settings.json", this.settings);
+      this.fixIframes();
+      dialog.destroy();
+      showMessage("设置已保存");
+    });
+  }
+}
+
+module.exports = BilibiliEmbedPlugin;
