@@ -39,6 +39,19 @@ class BilibiliEmbedPlugin extends Plugin {
       hotkey: "",
       callback: () => this.openSettingsDialog(),
     });
+    this.addCommand({
+      langKey: "proxyStatus",
+      hotkey: "",
+      callback: () => this.showProxyStatus(),
+    });
+    this.addCommand({
+      langKey: "reloadVideos",
+      hotkey: "",
+      callback: () => {
+        this.reloadVideos();
+        showMessage("已刷新当前文档中的 B 站播放器");
+      },
+    });
 
     this.eventBus.on("loaded-protyle-static", () => this.scheduleFix());
     this.eventBus.on("loaded-protyle-dynamic", () => this.scheduleFix());
@@ -98,6 +111,56 @@ class BilibiliEmbedPlugin extends Plugin {
         console.warn("[bilibili-embed] rewrite failed", src, error);
       }
     });
+  }
+
+  async getProxyStatus() {
+    const url = `${this.proxyBase()}/health`;
+    try {
+      const response = await fetch(url, {cache: "no-store"});
+      let data = {};
+      try {
+        data = await response.json();
+      } catch (_) {
+        data = {};
+      }
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || `HTTP ${response.status}`);
+      }
+      const cookie = data.has_cookie ? `已读取 ${data.cookie_count || 0} 个 Cookie` : "无 Cookie（公开视频仍可用）";
+      return {
+        ok: true,
+        text: `代理已连接 · ${cookie} · ffmpeg ${data.ffmpeg ? "正常" : "缺失"}`,
+        data,
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        text: `代理未连接：${error.message || error}`,
+        data: null,
+      };
+    }
+  }
+
+  async showProxyStatus() {
+    const status = await this.getProxyStatus();
+    showMessage(status.text);
+  }
+
+  reloadVideos() {
+    this.fixIframes();
+    window.setTimeout(() => {
+      document.querySelectorAll('.protyle-wysiwyg [data-type="NodeIFrame"] iframe').forEach((iframe) => {
+        const src = iframe.getAttribute("src") || "";
+        if (!/\/embed\/BV[0-9A-Za-z]{10}/.test(src)) return;
+        try {
+          const url = new URL(src, location.href);
+          url.searchParams.set("_reload", String(Date.now()));
+          iframe.setAttribute("src", url.toString());
+        } catch (_) {
+          // Ignore malformed third-party iframe URLs.
+        }
+      });
+    }, 120);
   }
 
   openInsertDialog(protyle) {
@@ -175,6 +238,11 @@ class BilibiliEmbedPlugin extends Plugin {
             <input id="biliEnabled" type="checkbox" ${this.settings.enabled === false ? "" : "checked"} />
             <span>启用 B 站视频地址改写</span>
           </label>
+          <div class="fn__flex" style="gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
+            <button id="biliCheckProxy" class="b3-button b3-button--outline" type="button">检测代理状态</button>
+            <button id="biliReloadVideos" class="b3-button b3-button--outline" type="button">刷新视频</button>
+            <span id="biliProxyStatus" class="b3-label__text">检测中…</span>
+          </div>
           <label class="fn__flex-column" style="gap:6px;margin-bottom:12px">
             <span>固定代理地址（留空 = 当前思源主机）</span>
             <input id="biliProxyBase" class="b3-text-field fn__block" value="${escapeHtml(this.settings.proxyBase || "")}" placeholder="例如 http://192.168.0.154:8765 或 https://bili.example.com" />
@@ -203,6 +271,21 @@ class BilibiliEmbedPlugin extends Plugin {
         </div>
       `,
     });
+    const statusEl = dialog.element.querySelector("#biliProxyStatus");
+    const updateProxyStatus = async () => {
+      statusEl.textContent = "检测中…";
+      statusEl.style.color = "";
+      const status = await this.getProxyStatus();
+      statusEl.textContent = status.text;
+      statusEl.style.color = status.ok ? "var(--b3-theme-success)" : "var(--b3-theme-error)";
+    };
+    dialog.element.querySelector("#biliCheckProxy").addEventListener("click", updateProxyStatus);
+    dialog.element.querySelector("#biliReloadVideos").addEventListener("click", () => {
+      this.reloadVideos();
+      showMessage("已刷新当前文档中的 B 站播放器");
+    });
+    updateProxyStatus();
+
     dialog.element.querySelector("#biliSettingsCancel").addEventListener("click", () => dialog.destroy());
     dialog.element.querySelector("#biliSettingsSave").addEventListener("click", async () => {
       this.settings = {
