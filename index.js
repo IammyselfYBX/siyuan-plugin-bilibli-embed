@@ -263,7 +263,12 @@ class BilibiliEmbedPlugin extends Plugin {
           </div>
           <label class="fn__flex-column" style="gap:6px">
             <span>代理访问 token（可留空）</span>
-            <input id="biliToken" class="b3-text-field fn__block" type="password" value="${escapeHtml(this.settings.token || "")}" />
+            <div class="fn__flex" style="gap:6px;align-items:center">
+              <input id="biliToken" class="b3-text-field" style="flex:1" type="password" value="${escapeHtml(this.settings.token || "")}" />
+              <button id="biliToggleToken" class="b3-button b3-button--outline" type="button" aria-label="显示 token" title="显示 token">
+                <svg class="b3-button__icon"><use xlink:href="#iconEye"></use></svg>
+              </button>
+            </div>
           </label>
           <p class="b3-label__text" style="margin-top:12px">
             代理地址留空时，会自动使用当前思源页面的主机名。通过 192.168.0.154:6806 打开时，视频地址会自动变成 192.168.0.154:8765。
@@ -275,6 +280,16 @@ class BilibiliEmbedPlugin extends Plugin {
         </div>
       `,
     });
+    const tokenInput = dialog.element.querySelector("#biliToken");
+    const tokenToggle = dialog.element.querySelector("#biliToggleToken");
+    tokenToggle.addEventListener("click", () => {
+      const showing = tokenInput.type === "text";
+      tokenInput.type = showing ? "password" : "text";
+      tokenToggle.setAttribute("aria-label", showing ? "显示 token" : "隐藏 token");
+      tokenToggle.setAttribute("title", showing ? "显示 token" : "隐藏 token");
+      tokenToggle.querySelector("use").setAttribute("xlink:href", showing ? "#iconEye" : "#iconEyeoff");
+    });
+
     const statusEl = dialog.element.querySelector("#biliProxyStatus");
     const updateProxyStatus = async () => {
       statusEl.textContent = "检测中…";
