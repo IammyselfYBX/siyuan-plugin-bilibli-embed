@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520">
+  <defs>
+    <style>
+      .title{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:34px;font-weight:700;fill:#18212f}
+      .node-title{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:22px;font-weight:700;fill:#18212f}
+      .node-text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:16px;fill:#536173}
+      .small{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;font-size:14px;fill:#64748b}
+      .arrow{stroke:#7c8798;stroke-width:4;fill:none;stroke-linecap:round}
+      .arrow-head{fill:#7c8798}
+    </style>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#1d3557" flood-opacity="0.10"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="520" fill="#f7fbff"/>
+  <text x="60" y="58" class="title">Bilibili Embed for SiYuan · 架构</text>
+  <text x="60" y="88" class="small">前端插件负责插入和地址改写，后端负责鉴权、播放解析与 ffmpeg 缓存。</text>
+
+  <g filter="url(#shadow)">
+    <rect x="55" y="145" width="250" height="190" rx="24" fill="#ffffff" stroke="#d8e5f3" stroke-width="2"/>
+    <circle cx="92" cy="183" r="17" fill="#e7f6ff"/>
+    <text x="85" y="190" font-size="20">◫</text>
+    <text x="123" y="190" class="node-title">SiYuan 客户端</text>
+    <text x="82" y="238" class="node-text">macOS / Windows</text>
+    <text x="82" y="266" class="node-text">Linux / iPad / Web</text>
+    <text x="82" y="306" class="small">同一份笔记与视频块</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="360" y="145" width="250" height="190" rx="24" fill="#ffffff" stroke="#d8e5f3" stroke-width="2"/>
+    <circle cx="397" cy="183" r="17" fill="#fff2f2"/>
+    <text x="390" y="190" font-size="19">⚙</text>
+    <text x="428" y="190" class="node-title">前端插件</text>
+    <text x="387" y="238" class="node-text">插入视频 / 课程</text>
+    <text x="387" y="266" class="node-text">主机地址自动改写</text>
+    <text x="387" y="306" class="small">检测代理与刷新播放器</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="665" y="145" width="250" height="190" rx="24" fill="#ffffff" stroke="#d8e5f3" stroke-width="2"/>
+    <circle cx="702" cy="183" r="17" fill="#eefaf3"/>
+    <text x="695" y="190" font-size="19">▶</text>
+    <text x="733" y="190" class="node-title">后端代理</text>
+    <text x="692" y="238" class="node-text">Cookie / token 鉴权</text>
+    <text x="692" y="266" class="node-text">DASH + ffmpeg 合成</text>
+    <text x="692" y="306" class="small">分 P / 分集 / 时长 / 缓存</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="970" y="145" width="175" height="190" rx="24" fill="#ffffff" stroke="#d8e5f3" stroke-width="2"/>
+    <circle cx="1007" cy="183" r="17" fill="#fff5e8"/>
+    <text x="1000" y="190" font-size="18">◎</text>
+    <text x="1034" y="190" class="node-title">B 站</text>
+    <text x="997" y="238" class="node-text">普通视频</text>
+    <text x="997" y="266" class="node-text">私密视频</text>
+    <text x="997" y="294" class="node-text">已购课程</text>
+  </g>
+
+  <path d="M305 240 L352 240" class="arrow"/>
+  <path d="M348 232 L360 240 L348 248 Z" class="arrow-head"/>
+  <path d="M610 240 L657 240" class="arrow"/>
+  <path d="M653 232 L665 240 L653 248 Z" class="arrow-head"/>
+  <path d="M915 240 L962 240" class="arrow"/>
+  <path d="M958 232 L970 240 L958 248 Z" class="arrow-head"/>
+
+  <text x="315" y="222" class="small">iframe</text>
+  <text x="617" y="222" class="small">HTTP + token</text>
+  <text x="922" y="222" class="small">API / CDN</text>
+
+  <rect x="360" y="385" width="555" height="72" rx="16" fill="#eaf7ff" stroke="#bfe6fb"/>
+  <text x="385" y="416" class="node-text">一个可访问的后端，就能服务多台思源设备。</text>
+  <text x="385" y="440" class="small">局域网使用 LAN 地址；跨网络使用 HTTPS / VPN / 共享网关。</text>
+</svg>
