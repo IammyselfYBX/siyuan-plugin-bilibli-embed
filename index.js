@@ -8,7 +8,7 @@ const DEFAULT_SETTINGS = {
   height: 520,
 };
 
-const BVID_RE = /BV[0-9A-Za-z]{10}/;
+const BVID_RE = /(?:BV[0-9A-Za-z]{10}|ss\d+)/i;
 
 function escapeHtml(value) {
   return String(value)
@@ -97,7 +97,7 @@ class BilibiliEmbedPlugin extends Plugin {
     const base = this.proxyBase();
     document.querySelectorAll('.protyle-wysiwyg [data-type="NodeIFrame"] iframe').forEach((iframe) => {
       const src = iframe.getAttribute("src") || "";
-      if (!/\/embed\/BV[0-9A-Za-z]{10}/.test(src)) return;
+      if (!/\/embed\/(?:BV[0-9A-Za-z]{10}|ss\d+)/i.test(src)) return;
       try {
         const url = new URL(src, location.href);
         const target = new URL(base);
@@ -150,7 +150,7 @@ class BilibiliEmbedPlugin extends Plugin {
     window.setTimeout(() => {
       document.querySelectorAll('.protyle-wysiwyg [data-type="NodeIFrame"] iframe').forEach((iframe) => {
         const src = iframe.getAttribute("src") || "";
-        if (!/\/embed\/BV[0-9A-Za-z]{10}/.test(src)) return;
+        if (!/\/embed\/(?:BV[0-9A-Za-z]{10}|ss\d+)/i.test(src)) return;
         try {
           const url = new URL(src, location.href);
           url.searchParams.set("_reload", String(Date.now()));
@@ -200,11 +200,11 @@ class BilibiliEmbedPlugin extends Plugin {
         <div class="b3-dialog__content">
           <label class="fn__flex-column" style="gap:6px;margin-bottom:12px">
             <span>B 站链接或 BV 号</span>
-            <input id="biliUrl" class="b3-text-field fn__block" placeholder="https://www.bilibili.com/video/BV... 或 BV..." />
+            <input id="biliUrl" class="b3-text-field fn__block" placeholder="B 站视频链接、BV 号，或课程 ss 号" />
           </label>
           <div class="fn__flex" style="gap:12px">
             <label class="fn__flex-column" style="gap:6px;flex:1">
-              <span>分 P</span>
+              <span>分 P / 分集</span>
               <input id="biliPage" class="b3-text-field fn__block" type="number" min="1" value="1" />
             </label>
             <label class="fn__flex-column" style="gap:6px;flex:1">
