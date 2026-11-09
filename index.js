@@ -1,4 +1,4 @@
-const { Plugin, Dialog, showMessage } = require("siyuan");
+const { Plugin, Dialog, showMessage, fetchPost } = require("siyuan");
 
 const DEFAULT_SETTINGS = {
   enabled: true,
@@ -84,12 +84,11 @@ class BilibiliEmbedPlugin extends Plugin {
     return `http://${host}:${Number(this.settings.proxyPort) || 8765}`;
   }
 
-  embedUrl(bvid, page = 1, height = null) {
+  embedUrl(bvid, page = 1, quality = 0) {
     const params = new URLSearchParams();
     params.set("p", String(Math.max(1, Number(page) || 1)));
-    const h = Number(height || this.settings.height || DEFAULT_SETTINGS.height);
-    if (h > 0) params.set("height", String(h));
-    if (this.settings.token) params.set("token", this.settings.token);
+    const q = Number(quality || 0);
+    if (q > 0) params.set("height", String(q));
     return `${this.proxyBase()}/embed/${encodeURIComponent(bvid)}?${params.toString()}`;
   }
 
@@ -163,6 +162,36 @@ class BilibiliEmbedPlugin extends Plugin {
     }, 120);
   }
 
+  currentBlockId(protyle) {
+    try {
+      const range = protyle.toolbar?.range || window.getSelection()?.getRangeAt(0);
+      let node = range?.startContainer;
+      if (node?.nodeType === Node.TEXT_NODE) node = node.parentElement;
+      const block = node?.closest?.("[data-node-id]");
+      if (block && protyle.wysiwyg?.element?.contains(block)) return block.dataset.nodeId || "";
+      const blocks = Array.from(protyle.wysiwyg?.element?.querySelectorAll(":scope > [data-node-id]") || []);
+      return blocks.length ? blocks[blocks.length - 1].dataset.nodeId || "" : "";
+    } catch (_) {
+      return "";
+    }
+  }
+
+  async insertVideoBlock(protyle, html) {
+    const docId = protyle.background?.id || protyle.element?.dataset?.nodeId || protyle.wysiwyg?.element?.closest("[data-node-id]")?.dataset?.nodeId;
+    if (!docId) throw new Error("无法获取当前文档 ID");
+    const previousID = this.currentBlockId(protyle);
+    const endpoint = previousID ? "/api/block/insertBlock" : "/api/block/appendBlock";
+    const payload = {dataType: "markdown", data: html, parentID: docId};
+    if (previousID) payload.previousID = previousID;
+    const result = await new Promise((resolve) => fetchPost(endpoint, payload, resolve));
+    if (!result || result.code !== 0) throw new Error(result?.msg || "插入块接口返回失败");
+    try {
+      protyle.reload?.();
+    } catch (_) {
+      // The transaction websocket usually refreshes the editor already.
+    }
+  }
+
   openInsertDialog(protyle) {
     const dialog = new Dialog({
       title: "插入 B 站视频",
@@ -182,6 +211,16 @@ class BilibiliEmbedPlugin extends Plugin {
               <span>高度（px）</span>
               <input id="biliHeight" class="b3-text-field fn__block" type="number" min="240" value="${Number(this.settings.height) || 520}" />
             </label>
+            <label class="fn__flex-column" style="gap:6px;flex:1">
+              <span>画质</span>
+              <select id="biliQuality" class="b3-select fn__block">
+                <option value="0">自动</option>
+                <option value="1080">1080P</option>
+                <option value="720">720P</option>
+                <option value="480">480P</option>
+                <option value="360">360P</option>
+              </select>
+            </label>
           </div>
           <p class="b3-label__text" style="margin-top:12px">
             当前代理：${escapeHtml(this.proxyBase())}
@@ -196,8 +235,9 @@ class BilibiliEmbedPlugin extends Plugin {
     const input = dialog.element.querySelector("#biliUrl");
     const pageInput = dialog.element.querySelector("#biliPage");
     const heightInput = dialog.element.querySelector("#biliHeight");
+    const qualityInput = dialog.element.querySelector("#biliQuality");
     dialog.element.querySelector("#biliCancel").addEventListener("click", () => dialog.destroy());
-    dialog.element.querySelector("#biliInsert").addEventListener("click", () => {
+    dialog.element.querySelector("#biliInsert").addEventListener("click", async () => {
       const raw = (input.value || "").trim();
       const match = raw.match(BVID_RE);
       if (!match) {
@@ -214,15 +254,17 @@ class BilibiliEmbedPlugin extends Plugin {
         // BV-only input is valid.
       }
       const height = Math.max(240, Number(heightInput.value) || 520);
+      const quality = Math.max(0, Number(qualityInput.value) || 0);
       const bvid = match[0];
-      const src = this.embedUrl(bvid, page, height);
+      const src = this.embedUrl(bvid, page, quality);
       const html = `<iframe src="${escapeHtml(src)}" style="width:100%;height:${height}px;border:0" allowfullscreen></iframe>`;
       try {
-        protyle.insert(html, false, true);
+        await this.insertVideoBlock(protyle, html);
         dialog.destroy();
+        showMessage("B 站视频已插入");
       } catch (error) {
-        console.error(error);
-        showMessage("插入失败，请确认当前文档处于编辑状态");
+        console.error("[bilibili-embed] insert failed", error, {protyle});
+        showMessage(`插入失败：${error.message || error}`);
       }
     });
     input.focus();
