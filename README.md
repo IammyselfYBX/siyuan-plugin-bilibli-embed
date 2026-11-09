@@ -2,6 +2,12 @@
 
 一个轻量的思源笔记插件，用于插入和管理 B 站视频 iframe 块。
 
+后端仓库：
+
+<https://github.com/IammyselfYBX/siyuan-plugin-bilibli-embed-backend>
+
+前端插件负责插入视频块、改写地址和状态检测；后端的启动、B 站 Cookie 和视频流代理请参考后端仓库。
+
 ## 功能
 
 - 从 B 站链接或 BV 号插入视频块；
